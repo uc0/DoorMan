@@ -218,22 +218,17 @@ public class Camera2BasicFragment extends Fragment
     private ImageReader mImageReader;
 
     /**
-     * This is the output file for our picture.
-     */
-    private File mFile;
-
-    /**
      * This a callback object for the {@link ImageReader}. "onImageAvailable" will be called when a
      * still image is ready to be saved.
      */
     private final ImageReader.OnImageAvailableListener mOnImageAvailableListener
             = new ImageReader.OnImageAvailableListener() {
-
         @Override
         public void onImageAvailable(ImageReader reader) {
-            mBackgroundHandler.post(new ImageSaver(reader.acquireNextImage(), mFile));
+            final Image image = reader.acquireLatestImage();
+            System.out.println("onImageAvailable" + image);
+            Log.i(TAG, "onImageAvailable" + image);
         }
-
     };
 
     /**
@@ -277,28 +272,34 @@ public class Camera2BasicFragment extends Fragment
         private void process(CaptureResult result) {
             switch (mState) {
                 case STATE_PREVIEW: {
-                    // We have nothing to do when the camera preview is working normally.
+//                    System.out.println("STATE_PREVIEW: " + result);
                     break;
                 }
                 case STATE_WAITING_LOCK: {
+                    System.out.println("STATE_WAITING_LOCK");
                     Integer afState = result.get(CaptureResult.CONTROL_AF_STATE);
                     if (afState == null) {
                         captureStillPicture();
+                        System.out.println("1");
                     } else if (CaptureResult.CONTROL_AF_STATE_FOCUSED_LOCKED == afState ||
                             CaptureResult.CONTROL_AF_STATE_NOT_FOCUSED_LOCKED == afState) {
+                        System.out.println("2");
                         // CONTROL_AE_STATE can be null on some devices
                         Integer aeState = result.get(CaptureResult.CONTROL_AE_STATE);
                         if (aeState == null ||
                                 aeState == CaptureResult.CONTROL_AE_STATE_CONVERGED) {
+                            System.out.println("3");
                             mState = STATE_PICTURE_TAKEN;
                             captureStillPicture();
                         } else {
+                            System.out.println("4");
                             runPrecaptureSequence();
                         }
                     }
                     break;
                 }
                 case STATE_WAITING_PRECAPTURE: {
+                    System.out.println("STATE_WAITING_PRECAPTURE");
                     // CONTROL_AE_STATE can be null on some devices
                     Integer aeState = result.get(CaptureResult.CONTROL_AE_STATE);
                     if (aeState == null ||
@@ -309,6 +310,7 @@ public class Camera2BasicFragment extends Fragment
                     break;
                 }
                 case STATE_WAITING_NON_PRECAPTURE: {
+                    System.out.println("STATE_WAITING_NON_PRECAPTURE");
                     // CONTROL_AE_STATE can be null on some devices
                     Integer aeState = result.get(CaptureResult.CONTROL_AE_STATE);
                     if (aeState == null || aeState != CaptureResult.CONTROL_AE_STATE_PRECAPTURE) {
@@ -418,12 +420,6 @@ public class Camera2BasicFragment extends Fragment
     }
 
     @Override
-    public void onActivityCreated(Bundle savedInstanceState) {
-        super.onActivityCreated(savedInstanceState);
-        mFile = new File(Objects.requireNonNull(getActivity()).getExternalFilesDir(null), "pic.jpg");
-    }
-
-    @Override
     public void onResume() {
         super.onResume();
         startBackgroundThread();
@@ -499,10 +495,8 @@ public class Camera2BasicFragment extends Fragment
                 Size largest = Collections.max(
                         Arrays.asList(map.getOutputSizes(ImageFormat.JPEG)),
                         new CompareSizesByArea());
-                mImageReader = ImageReader.newInstance(largest.getWidth(), largest.getHeight(),
-                        ImageFormat.JPEG, /*maxImages*/2);
-                mImageReader.setOnImageAvailableListener(
-                        mOnImageAvailableListener, mBackgroundHandler);
+                mImageReader = ImageReader.newInstance(largest.getWidth(), largest.getHeight(), ImageFormat.YUV_420_888, 3);
+                mImageReader.setOnImageAvailableListener(mOnImageAvailableListener, mBackgroundHandler);
 
                 // Find out if we need to swap dimension to get the preview size relative to sensor
                 // coordinate.
@@ -689,8 +683,6 @@ public class Camera2BasicFragment extends Fragment
                                 // Auto focus should be continuous for camera preview.
                                 mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE,
                                         CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
-                                // Flash is automatically enabled when necessary.
-                                setAutoFlash(mPreviewRequestBuilder);
 
                                 // Finally, we start displaying the camera preview.
                                 mPreviewRequest = mPreviewRequestBuilder.build();
@@ -806,7 +798,6 @@ public class Camera2BasicFragment extends Fragment
             // Use the same AE and AF modes as the preview.
             captureBuilder.set(CaptureRequest.CONTROL_AF_MODE,
                     CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
-            setAutoFlash(captureBuilder);
 
             // Orientation
             int rotation = activity.getWindowManager().getDefaultDisplay().getRotation();
@@ -819,9 +810,6 @@ public class Camera2BasicFragment extends Fragment
                 public void onCaptureCompleted(CameraCaptureSession session,
                                                CaptureRequest request,
                                                TotalCaptureResult result) {
-                    showToast("Saved: " + mFile);
-                    Log.d(TAG, mFile.toString());
-                    unlockFocus();
                 }
             };
 
@@ -847,83 +835,11 @@ public class Camera2BasicFragment extends Fragment
         return (ORIENTATIONS.get(rotation) + mSensorOrientation + 270) % 360;
     }
 
-    /**
-     * Unlock the focus. This method should be called when still image capture sequence is
-     * finished.
-     */
-    private void unlockFocus() {
-        try {
-            // Reset the auto-focus trigger
-            mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER,
-                    CameraMetadata.CONTROL_AF_TRIGGER_CANCEL);
-            setAutoFlash(mPreviewRequestBuilder);
-            mCaptureSession.capture(mPreviewRequestBuilder.build(), mCaptureCallback,
-                    mBackgroundHandler);
-            // After this, the camera will go back to the normal state of preview.
-            mState = STATE_PREVIEW;
-            mCaptureSession.setRepeatingRequest(mPreviewRequest, mCaptureCallback,
-                    mBackgroundHandler);
-        } catch (CameraAccessException e) {
-            e.printStackTrace();
-        }
-    }
-
     @Override
     public void onClick(View view) {
         if (view.getId() == R.id.picture) {
             takePicture();
         }
-    }
-
-    private void setAutoFlash(CaptureRequest.Builder requestBuilder) {
-        if (mFlashSupported) {
-            requestBuilder.set(CaptureRequest.CONTROL_AE_MODE,
-                    CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH);
-        }
-    }
-
-    /**
-     * Saves a JPEG {@link Image} into the specified {@link File}.
-     */
-    private static class ImageSaver implements Runnable {
-
-        /**
-         * The JPEG image
-         */
-        private final Image mImage;
-        /**
-         * The file we save the image into.
-         */
-        private final File mFile;
-
-        ImageSaver(Image image, File file) {
-            mImage = image;
-            mFile = file;
-        }
-
-        @Override
-        public void run() {
-            ByteBuffer buffer = mImage.getPlanes()[0].getBuffer();
-            byte[] bytes = new byte[buffer.remaining()];
-            buffer.get(bytes);
-            FileOutputStream output = null;
-            try {
-                output = new FileOutputStream(mFile);
-                output.write(bytes);
-            } catch (IOException e) {
-                e.printStackTrace();
-            } finally {
-                mImage.close();
-                if (null != output) {
-                    try {
-                        output.close();
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                }
-            }
-        }
-
     }
 
     /**

@@ -94,25 +94,19 @@ public class TFLiteModel extends Application {
                                 BufferedReader reader = null;
                                 try {
                                     reader = new BufferedReader(new InputStreamReader(context.getAssets().open("labels.txt")));
-                                    System.out.println(reader);
                                 } catch (IOException e) {
-                                    System.out.println("error_3");
                                     e.printStackTrace();
                                 }
 
                                 for (float probability : probabilities) {
                                     String label = null;
                                     try {
-                                        System.out.println(reader);
                                         label = reader.readLine();
-                                        System.out.println(label);
-                                        System.out.println(reader);
                                     } catch (IOException e) {
                                         e.printStackTrace();
                                     }
                                     Log.i("MLKit", String.format("%s: %1.4f", label, probability));
                                 }
-
                                 Log.i("Output", "Output: " + Arrays.deepToString(output));
                             }
                         })
