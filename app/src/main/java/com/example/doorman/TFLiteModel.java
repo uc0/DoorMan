@@ -2,15 +2,11 @@ package com.example.doorman;
 
 import android.app.Application;
 import android.content.Context;
-import android.content.res.Resources;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.Color;
-import android.graphics.drawable.BitmapDrawable;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
-import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
@@ -28,7 +24,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.Arrays;
 
-public class TFLiteModel extends Application {
+public class TFLiteModel extends Application{
 //    private static FirebaseCustomLocalModel localModel;
 //    private static FirebaseModelInterpreter interpreter;
     private static FirebaseModelInputOutputOptions inputOutputOptions;
@@ -61,8 +57,8 @@ public class TFLiteModel extends Application {
     }
 
     // 판별 시작
-    public void setInputArray(FirebaseModelInterpreter firebaseInterpreter, Context context) throws FirebaseMLException {
-        Bitmap bitmap = BitmapFactory.decodeResource(context.getResources(), R.drawable.test2);
+    public void setInputArray(FirebaseModelInterpreter firebaseInterpreter, Context context, Bitmap bitmap) throws FirebaseMLException {
+        // Bitmap bitmap = BitmapFactory.decodeResource(context.getResources(), R.drawable.test2);
         bitmap = Bitmap.createScaledBitmap(bitmap, 224, 224, true);
 
         int batchNum = 0;
@@ -118,4 +114,50 @@ public class TFLiteModel extends Application {
                             }
                         });
     }
+
+//    public FirebaseVisionFaceDetectorOptions setFaceDetector() {
+//        // Real-time contour detection of multiple faces
+//        FirebaseVisionFaceDetectorOptions realTimeOpts =
+//                new FirebaseVisionFaceDetectorOptions.Builder()
+//                        .setContourMode(FirebaseVisionFaceDetectorOptions.ALL_CONTOURS)
+//                        .build();
+//
+//        return realTimeOpts;
+//    }
+//
+//    public void faceDetection() {
+//        Bitmap bitmap = BitmapFactory.decodeResource(getResources(), R.drawable.test2);
+//
+//        FirebaseVisionImageMetadata metadata = new FirebaseVisionImageMetadata.Builder()
+//                .setWidth(480)   // 480x360 is typically sufficient for
+//                .setHeight(360)  // image recognition
+//                .setFormat(FirebaseVisionImageMetadata.IMAGE_FORMAT_NV21)
+//                .build();
+//
+//        FirebaseVisionImage image = FirebaseVisionImage.fromBitmap(bitmap);
+//
+//        FirebaseVisionFaceDetector detector = FirebaseVision.getInstance()
+//                .getVisionFaceDetector(setFaceDetector());
+//
+//        Task<List<FirebaseVisionFace>> result =
+//                detector.detectInImage(image)
+//                        .addOnSuccessListener(
+//                                new OnSuccessListener<List<FirebaseVisionFace>>() {
+//                                    @Override
+//                                    public void onSuccess(List<FirebaseVisionFace> faces) {
+//                                        // Task completed successfully
+//                                        // ...
+//                                    }
+//                                })
+//                        .addOnFailureListener(
+//                                new OnFailureListener() {
+//                                    @Override
+//                                    public void onFailure(@NonNull Exception e) {
+//                                        // Task failed with an exception
+//                                        // ...
+//                                    }
+//                                });
+//        System.out.println(result);
+//    }
+
 }

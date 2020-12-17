@@ -1,17 +1,5 @@
 package com.example.doorman;
 
-import android.os.Bundle;
-
-import androidx.annotation.NonNull;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
-import androidx.fragment.app.DialogFragment;
-import androidx.fragment.app.Fragment;
-
-import android.view.LayoutInflater;
-import android.view.View;
-import android.view.ViewGroup;
-
 import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -20,6 +8,8 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.ImageFormat;
 import android.graphics.Matrix;
 import android.graphics.Point;
@@ -37,25 +27,36 @@ import android.hardware.camera2.TotalCaptureResult;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.Image;
 import android.media.ImageReader;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.util.Log;
 import android.util.Size;
 import android.util.SparseIntArray;
+import android.view.LayoutInflater;
 import android.view.Surface;
 import android.view.TextureView;
+import android.view.View;
+import android.view.ViewGroup;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+import androidx.fragment.app.DialogFragment;
+import androidx.fragment.app.Fragment;
+
+import com.google.firebase.ml.common.FirebaseMLException;
+import com.google.firebase.ml.custom.FirebaseCustomLocalModel;
+import com.google.firebase.ml.custom.FirebaseModelInterpreter;
+
 import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
@@ -175,7 +176,7 @@ public class Camera2BasicFragment extends Fragment
     private final CameraDevice.StateCallback mStateCallback = new CameraDevice.StateCallback() {
 
         @Override
-        public void onOpened(CameraDevice cameraDevice) {
+        public void onOpened(@NonNull CameraDevice cameraDevice) {
             // This method is called when the camera is opened.  We start camera preview here.
             mCameraOpenCloseLock.release();
             mCameraDevice = cameraDevice;
@@ -183,14 +184,14 @@ public class Camera2BasicFragment extends Fragment
         }
 
         @Override
-        public void onDisconnected(CameraDevice cameraDevice) {
+        public void onDisconnected(@NonNull CameraDevice cameraDevice) {
             mCameraOpenCloseLock.release();
             cameraDevice.close();
             mCameraDevice = null;
         }
 
         @Override
-        public void onError(CameraDevice cameraDevice, int error) {
+        public void onError(@NonNull CameraDevice cameraDevice, int error) {
             mCameraOpenCloseLock.release();
             cameraDevice.close();
             mCameraDevice = null;
@@ -218,17 +219,24 @@ public class Camera2BasicFragment extends Fragment
     private ImageReader mImageReader;
 
     /**
+     * This is the output file for our picture.
+     */
+    private File mFile;
+
+    /**
      * This a callback object for the {@link ImageReader}. "onImageAvailable" will be called when a
      * still image is ready to be saved.
      */
     private final ImageReader.OnImageAvailableListener mOnImageAvailableListener
             = new ImageReader.OnImageAvailableListener() {
+
         @Override
         public void onImageAvailable(ImageReader reader) {
-            final Image image = reader.acquireLatestImage();
-            System.out.println("onImageAvailable" + image);
-            Log.i(TAG, "onImageAvailable" + image);
+            Log.d("DEV", "onImageAvailable");
+
+            mBackgroundHandler.post(new ImageSaver(reader.acquireLatestImage()));
         }
+
     };
 
     /**
@@ -272,34 +280,30 @@ public class Camera2BasicFragment extends Fragment
         private void process(CaptureResult result) {
             switch (mState) {
                 case STATE_PREVIEW: {
-//                    System.out.println("STATE_PREVIEW: " + result);
+                    // We have nothing to do when the camera preview is working normally.
+//                    takePicture();
+//                    Log.d("DEV", "STATE_PREVIEW");
                     break;
                 }
                 case STATE_WAITING_LOCK: {
-                    System.out.println("STATE_WAITING_LOCK");
                     Integer afState = result.get(CaptureResult.CONTROL_AF_STATE);
                     if (afState == null) {
                         captureStillPicture();
-                        System.out.println("1");
                     } else if (CaptureResult.CONTROL_AF_STATE_FOCUSED_LOCKED == afState ||
                             CaptureResult.CONTROL_AF_STATE_NOT_FOCUSED_LOCKED == afState) {
-                        System.out.println("2");
                         // CONTROL_AE_STATE can be null on some devices
                         Integer aeState = result.get(CaptureResult.CONTROL_AE_STATE);
                         if (aeState == null ||
                                 aeState == CaptureResult.CONTROL_AE_STATE_CONVERGED) {
-                            System.out.println("3");
                             mState = STATE_PICTURE_TAKEN;
                             captureStillPicture();
                         } else {
-                            System.out.println("4");
                             runPrecaptureSequence();
                         }
                     }
                     break;
                 }
                 case STATE_WAITING_PRECAPTURE: {
-                    System.out.println("STATE_WAITING_PRECAPTURE");
                     // CONTROL_AE_STATE can be null on some devices
                     Integer aeState = result.get(CaptureResult.CONTROL_AE_STATE);
                     if (aeState == null ||
@@ -310,7 +314,6 @@ public class Camera2BasicFragment extends Fragment
                     break;
                 }
                 case STATE_WAITING_NON_PRECAPTURE: {
-                    System.out.println("STATE_WAITING_NON_PRECAPTURE");
                     // CONTROL_AE_STATE can be null on some devices
                     Integer aeState = result.get(CaptureResult.CONTROL_AE_STATE);
                     if (aeState == null || aeState != CaptureResult.CONTROL_AE_STATE_PRECAPTURE) {
@@ -323,16 +326,16 @@ public class Camera2BasicFragment extends Fragment
         }
 
         @Override
-        public void onCaptureProgressed(CameraCaptureSession session,
-                                        CaptureRequest request,
-                                        CaptureResult partialResult) {
+        public void onCaptureProgressed(@NonNull CameraCaptureSession session,
+                                        @NonNull CaptureRequest request,
+                                        @NonNull CaptureResult partialResult) {
             process(partialResult);
         }
 
         @Override
-        public void onCaptureCompleted(CameraCaptureSession session,
-                                       CaptureRequest request,
-                                       TotalCaptureResult result) {
+        public void onCaptureCompleted(@NonNull CameraCaptureSession session,
+                                       @NonNull CaptureRequest request,
+                                       @NonNull TotalCaptureResult result) {
             process(result);
         }
 
@@ -340,6 +343,7 @@ public class Camera2BasicFragment extends Fragment
 
     /**
      * Shows a {@link Toast} on the UI thread.
+     *
      * @param text The message to show
      */
     private void showToast(final String text) {
@@ -420,6 +424,12 @@ public class Camera2BasicFragment extends Fragment
     }
 
     @Override
+    public void onActivityCreated(Bundle savedInstanceState) {
+        super.onActivityCreated(savedInstanceState);
+        mFile = new File(getActivity().getExternalFilesDir(null), "pic.jpg");
+    }
+
+    @Override
     public void onResume() {
         super.onResume();
         startBackgroundThread();
@@ -472,7 +482,6 @@ public class Camera2BasicFragment extends Fragment
     @SuppressWarnings("SuspiciousNameCombination")
     private void setUpCameraOutputs(int width, int height) {
         Activity activity = getActivity();
-        assert activity != null;
         CameraManager manager = (CameraManager) activity.getSystemService(Context.CAMERA_SERVICE);
         try {
             for (String cameraId : manager.getCameraIdList()) {
@@ -495,24 +504,29 @@ public class Camera2BasicFragment extends Fragment
                 Size largest = Collections.max(
                         Arrays.asList(map.getOutputSizes(ImageFormat.JPEG)),
                         new CompareSizesByArea());
-                mImageReader = ImageReader.newInstance(largest.getWidth(), largest.getHeight(), ImageFormat.YUV_420_888, 3);
-                mImageReader.setOnImageAvailableListener(mOnImageAvailableListener, mBackgroundHandler);
+                mImageReader = ImageReader.newInstance(largest.getWidth(), largest.getHeight(),
+                        ImageFormat.JPEG, 2);
+                mImageReader.setOnImageAvailableListener(
+                        mOnImageAvailableListener, mBackgroundHandler);
 
                 // Find out if we need to swap dimension to get the preview size relative to sensor
                 // coordinate.
                 int displayRotation = activity.getWindowManager().getDefaultDisplay().getRotation();
+                //noinspection ConstantConditions
                 mSensorOrientation = characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION);
                 boolean swappedDimensions = false;
                 switch (displayRotation) {
                     case Surface.ROTATION_0:
                     case Surface.ROTATION_180:
-                        if (mSensorOrientation == 90 || mSensorOrientation == 270)
+                        if (mSensorOrientation == 90 || mSensorOrientation == 270) {
                             swappedDimensions = true;
+                        }
                         break;
                     case Surface.ROTATION_90:
                     case Surface.ROTATION_270:
-                        if (mSensorOrientation == 0 || mSensorOrientation == 180)
+                        if (mSensorOrientation == 0 || mSensorOrientation == 180) {
                             swappedDimensions = true;
+                        }
                         break;
                     default:
                         Log.e(TAG, "Display rotation is invalid: " + displayRotation);
@@ -578,7 +592,7 @@ public class Camera2BasicFragment extends Fragment
      * Opens the camera specified by {@link Camera2BasicFragment#mCameraId}.
      */
     private void openCamera(int width, int height) {
-        if (ContextCompat.checkSelfPermission(Objects.requireNonNull(getActivity()), Manifest.permission.CAMERA)
+        if (ContextCompat.checkSelfPermission(getActivity(), Manifest.permission.CAMERA)
                 != PackageManager.PERMISSION_GRANTED) {
             requestCameraPermission();
             return;
@@ -671,7 +685,7 @@ public class Camera2BasicFragment extends Fragment
                     new CameraCaptureSession.StateCallback() {
 
                         @Override
-                        public void onConfigured(CameraCaptureSession cameraCaptureSession) {
+                        public void onConfigured(@NonNull CameraCaptureSession cameraCaptureSession) {
                             // The camera is already closed
                             if (null == mCameraDevice) {
                                 return;
@@ -683,6 +697,8 @@ public class Camera2BasicFragment extends Fragment
                                 // Auto focus should be continuous for camera preview.
                                 mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE,
                                         CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
+                                // Flash is automatically enabled when necessary.
+                                setAutoFlash(mPreviewRequestBuilder);
 
                                 // Finally, we start displaying the camera preview.
                                 mPreviewRequest = mPreviewRequestBuilder.build();
@@ -695,7 +711,7 @@ public class Camera2BasicFragment extends Fragment
 
                         @Override
                         public void onConfigureFailed(
-                                CameraCaptureSession cameraCaptureSession) {
+                                @NonNull CameraCaptureSession cameraCaptureSession) {
                             showToast("Failed");
                         }
                     }, null
@@ -798,6 +814,7 @@ public class Camera2BasicFragment extends Fragment
             // Use the same AE and AF modes as the preview.
             captureBuilder.set(CaptureRequest.CONTROL_AF_MODE,
                     CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
+            setAutoFlash(captureBuilder);
 
             // Orientation
             int rotation = activity.getWindowManager().getDefaultDisplay().getRotation();
@@ -807,9 +824,12 @@ public class Camera2BasicFragment extends Fragment
                     = new CameraCaptureSession.CaptureCallback() {
 
                 @Override
-                public void onCaptureCompleted(CameraCaptureSession session,
-                                               CaptureRequest request,
-                                               TotalCaptureResult result) {
+                public void onCaptureCompleted(@NonNull CameraCaptureSession session,
+                                               @NonNull CaptureRequest request,
+                                               @NonNull TotalCaptureResult result) {
+                    showToast("Saved: " + mFile);
+                    Log.d(TAG, mFile.toString());
+                    unlockFocus();
                 }
             };
 
@@ -835,10 +855,89 @@ public class Camera2BasicFragment extends Fragment
         return (ORIENTATIONS.get(rotation) + mSensorOrientation + 270) % 360;
     }
 
+    /**
+     * Unlock the focus. This method should be called when still image capture sequence is
+     * finished.
+     */
+    private void unlockFocus() {
+        try {
+            // Reset the auto-focus trigger
+            mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER,
+                    CameraMetadata.CONTROL_AF_TRIGGER_CANCEL);
+            setAutoFlash(mPreviewRequestBuilder);
+            mCaptureSession.capture(mPreviewRequestBuilder.build(), mCaptureCallback,
+                    mBackgroundHandler);
+            // After this, the camera will go back to the normal state of preview.
+            mState = STATE_PREVIEW;
+            mCaptureSession.setRepeatingRequest(mPreviewRequest, mCaptureCallback,
+                    mBackgroundHandler);
+        } catch (CameraAccessException e) {
+            e.printStackTrace();
+        }
+    }
+
     @Override
     public void onClick(View view) {
         if (view.getId() == R.id.picture) {
             takePicture();
+        }
+    }
+
+    private void setAutoFlash(CaptureRequest.Builder requestBuilder) {
+        if (mFlashSupported) {
+            requestBuilder.set(CaptureRequest.CONTROL_AE_MODE,
+                    CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH);
+        }
+    }
+
+    /**
+     * Saves a JPEG {@link Image} into the specified {@link File}.
+     */
+    private class ImageSaver implements Runnable {
+
+        /**
+         * The JPEG image
+         */
+        private final Image mImage;
+        private FirebaseCustomLocalModel localModel;
+        private FirebaseModelInterpreter interpreter;
+        /**
+         * The file we save the image into.
+         */
+
+        ImageSaver(Image image) {
+            mImage = image;
+        }
+
+        @Override
+        public void run() {
+            try {
+                ByteBuffer buffer = mImage.getPlanes()[0].getBuffer();
+                byte[] bytes = new byte[buffer.remaining()];
+                buffer.get(bytes);
+
+                Bitmap bitmapImage = BitmapFactory.decodeByteArray(bytes, 0, bytes.length, null);
+
+                Log.d("DEV", "ImageSaver - run");
+
+                // 여기에 이미지 프로세싱
+                TFLiteModel model = new TFLiteModel();
+
+                localModel = model.loadModel(localModel);
+                Context context = getContext();
+                try {
+                    interpreter = model.setInterpreter(interpreter, localModel);
+                    model.setInputArray(interpreter, context, bitmapImage);
+                } catch (FirebaseMLException e) {
+                    Log.e("Firebase", "error(onCreate)" + e.getMessage());
+                    e.printStackTrace();
+                }
+            } catch (IllegalStateException e) {
+                Log.e("ERROR", "Can't read the image file.", e);
+            } finally {
+                mImage.close();
+            }
+
         }
     }
 
@@ -875,13 +974,11 @@ public class Camera2BasicFragment extends Fragment
         @Override
         public Dialog onCreateDialog(Bundle savedInstanceState) {
             final Activity activity = getActivity();
-            assert getArguments() != null;
             return new AlertDialog.Builder(activity)
                     .setMessage(getArguments().getString(ARG_MESSAGE))
                     .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
                         @Override
                         public void onClick(DialogInterface dialogInterface, int i) {
-                            assert activity != null;
                             activity.finish();
                         }
                     })
@@ -904,7 +1001,6 @@ public class Camera2BasicFragment extends Fragment
                     .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
                         @Override
                         public void onClick(DialogInterface dialog, int which) {
-                            assert parent != null;
                             parent.requestPermissions(new String[]{Manifest.permission.CAMERA},
                                     REQUEST_CAMERA_PERMISSION);
                         }
@@ -913,7 +1009,6 @@ public class Camera2BasicFragment extends Fragment
                             new DialogInterface.OnClickListener() {
                                 @Override
                                 public void onClick(DialogInterface dialog, int which) {
-                                    assert parent != null;
                                     Activity activity = parent.getActivity();
                                     if (activity != null) {
                                         activity.finish();
@@ -923,4 +1018,5 @@ public class Camera2BasicFragment extends Fragment
                     .create();
         }
     }
+
 }
