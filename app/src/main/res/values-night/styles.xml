@@ -1,0 +1,13 @@
+<resources>
+
+    <style name="Widget.Theme.DoorMan.MyView" parent="">
+        <item name="android:background">@color/gray_400</item>
+        <!--        <item name="exampleColor">@color/light_blue_400</item>-->
+
+        <!-- No Title Bar-->
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+    </style>
+
+    <color name="gray_400">#727171</color>
+</resources>
