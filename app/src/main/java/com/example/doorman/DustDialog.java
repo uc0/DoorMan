@@ -1,5 +1,6 @@
 package com.example.doorman;
 
+import android.app.Activity;
 import android.app.Dialog;
 import android.content.Context;
 import android.os.Bundle;
@@ -39,11 +40,15 @@ public class DustDialog extends Dialog {
 
         new Thread() {
             public void run() {
+                // 객체 생성
+                getActivity().runOnUiThread(new Runnable(){
 
+                });
                 Call<Object> getTest = RetrofitClient.getApiService().getTest();
 
                 try {
                     Log.i("AABc", "test");
+                    // 실행
                     apiTest.setText(getTest.execute().body().toString());
                 } catch (IOException e) {
                     Log.i("ABC", "API 실패");

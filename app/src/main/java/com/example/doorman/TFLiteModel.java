@@ -1,12 +1,17 @@
 package com.example.doorman;
 
+import android.app.Activity;
 import android.app.Application;
 import android.content.Context;
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Color;
+import android.os.Bundle;
 import android.util.Log;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
@@ -19,15 +24,18 @@ import com.google.firebase.ml.custom.FirebaseModelInterpreter;
 import com.google.firebase.ml.custom.FirebaseModelInterpreterOptions;
 import com.google.firebase.ml.custom.FirebaseModelOutputs;
 
+import org.greenrobot.eventbus.EventBus;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.Arrays;
 
-public class TFLiteModel extends Application{
+public class TFLiteModel {
 //    private static FirebaseCustomLocalModel localModel;
 //    private static FirebaseModelInterpreter interpreter;
     private static FirebaseModelInputOutputOptions inputOutputOptions;
+    float[][] rst;
 
     // "tflite" 모델 불러오기
     public FirebaseCustomLocalModel loadModel(FirebaseCustomLocalModel localModel) {
@@ -59,10 +67,12 @@ public class TFLiteModel extends Application{
     // 판별 시작
     public void setInputArray(FirebaseModelInterpreter firebaseInterpreter, Context context, Bitmap bitmap) throws FirebaseMLException {
         // Bitmap bitmap = BitmapFactory.decodeResource(context.getResources(), R.drawable.test2);
+
         bitmap = Bitmap.createScaledBitmap(bitmap, 224, 224, true);
 
         int batchNum = 0;
         float[][][][] input = new float[1][224][224][3];
+
         for (int x = 0; x < 224; x++) {
             for (int y = 0; y < 224; y++) {
                 int pixel = bitmap.getPixel(x, y);
@@ -102,8 +112,15 @@ public class TFLiteModel extends Application{
                                         e.printStackTrace();
                                     }
                                     Log.i("MLKit", String.format("%s: %1.4f", label, probability));
+
+                                    if (label.equals("unmask") && probability >= 0.6) {
+                                        Log.d("event-mask", "전송");
+                                        EventBus.getDefault().post(new MainActivity.DataEvent("unmask"));
+
+                                    }
                                 }
                                 Log.i("Output", "Output: " + Arrays.deepToString(output));
+                                rst = output;
                             }
                         })
                 .addOnFailureListener(

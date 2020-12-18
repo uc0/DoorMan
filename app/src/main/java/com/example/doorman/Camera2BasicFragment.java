@@ -6,6 +6,7 @@ import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.graphics.Bitmap;
@@ -49,6 +50,10 @@ import androidx.fragment.app.Fragment;
 import com.google.firebase.ml.common.FirebaseMLException;
 import com.google.firebase.ml.custom.FirebaseCustomLocalModel;
 import com.google.firebase.ml.custom.FirebaseModelInterpreter;
+
+import org.greenrobot.eventbus.EventBus;
+import org.greenrobot.eventbus.Subscribe;
+import org.greenrobot.eventbus.ThreadMode;
 
 import java.io.File;
 import java.nio.ByteBuffer;
@@ -352,7 +357,7 @@ public class Camera2BasicFragment extends Fragment
             activity.runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
-                    Toast.makeText(activity, text, Toast.LENGTH_SHORT).show();
+                    Toast.makeText(activity, text, Toast.LENGTH_LONG).show();
                 }
             });
         }
@@ -414,6 +419,7 @@ public class Camera2BasicFragment extends Fragment
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
+
         return inflater.inflate(R.layout.fragment_camera2_basic, container, false);
     }
 
@@ -421,12 +427,26 @@ public class Camera2BasicFragment extends Fragment
     public void onViewCreated(final View view, Bundle savedInstanceState) {
         view.findViewById(R.id.picture).setOnClickListener(this);
         mTextureView = view.findViewById(R.id.texture);
+
+
     }
 
     @Override
     public void onActivityCreated(Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
         mFile = new File(getActivity().getExternalFilesDir(null), "pic.jpg");
+    }
+
+
+    @Override
+    public void onStop() {
+        super.onStop();
+
+        try{
+            EventBus.getDefault().register(this);
+        }catch (Exception e){
+            Log.e("ERROR", "Error: " + e);
+        }
     }
 
     @Override
@@ -712,7 +732,7 @@ public class Camera2BasicFragment extends Fragment
                         @Override
                         public void onConfigureFailed(
                                 @NonNull CameraCaptureSession cameraCaptureSession) {
-                            showToast("Failed");
+//                            showToast("Failed");
                         }
                     }, null
             );
@@ -827,7 +847,7 @@ public class Camera2BasicFragment extends Fragment
                 public void onCaptureCompleted(@NonNull CameraCaptureSession session,
                                                @NonNull CaptureRequest request,
                                                @NonNull TotalCaptureResult result) {
-                    showToast("Saved: " + mFile);
+//                    showToast("Saved: " + mFile);
                     Log.d(TAG, mFile.toString());
                     unlockFocus();
                 }
@@ -890,6 +910,7 @@ public class Camera2BasicFragment extends Fragment
         }
     }
 
+
     /**
      * Saves a JPEG {@link Image} into the specified {@link File}.
      */
@@ -907,16 +928,27 @@ public class Camera2BasicFragment extends Fragment
 
         ImageSaver(Image image) {
             mImage = image;
+
+            try{
+                EventBus.getDefault().register(this);
+                Log.d("event-mask", "구독 등록");
+            }catch (Exception e){
+                Log.e("ERROR-mask", "Error: " + e);
+                e.printStackTrace();
+            }
         }
 
         @Override
         public void run() {
             try {
+
+
                 ByteBuffer buffer = mImage.getPlanes()[0].getBuffer();
                 byte[] bytes = new byte[buffer.remaining()];
                 buffer.get(bytes);
 
                 Bitmap bitmapImage = BitmapFactory.decodeByteArray(bytes, 0, bytes.length, null);
+                String[] maskResult = {"test123"};
 
                 Log.d("DEV", "ImageSaver - run");
 
@@ -924,10 +956,12 @@ public class Camera2BasicFragment extends Fragment
                 TFLiteModel model = new TFLiteModel();
 
                 localModel = model.loadModel(localModel);
+
                 Context context = getContext();
                 try {
                     interpreter = model.setInterpreter(interpreter, localModel);
                     model.setInputArray(interpreter, context, bitmapImage);
+
                 } catch (FirebaseMLException e) {
                     Log.e("Firebase", "error(onCreate)" + e.getMessage());
                     e.printStackTrace();
@@ -938,6 +972,14 @@ public class Camera2BasicFragment extends Fragment
                 mImage.close();
             }
 
+        }
+
+        @Subscribe(threadMode = ThreadMode.MAIN)
+        public void onMessageEvent ( MainActivity.DataEvent event) {
+            if (event.helloEventBus.equals("unmask")) {
+                Log.d("mask-event", "전송 완료" + event.helloEventBus);
+                Toast.makeText(getActivity(), "마스크를 착용해주세요!!!", Toast.LENGTH_LONG).show();
+            }
         }
     }
 

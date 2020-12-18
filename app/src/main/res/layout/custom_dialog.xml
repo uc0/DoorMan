@@ -10,22 +10,20 @@
         android:id="@+id/btDustClose"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="158dp"
+        android:layout_marginStart="27dp"
+        android:layout_marginBottom="157dp"
         android:background="#150B0B"
         android:text="CLOSE"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.498"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/tvDustApiTest"
-        app:layout_constraintVertical_bias="0.847" />
+        app:layout_constraintStart_toEndOf="@+id/textView9"
+        app:layout_constraintTop_toBottomOf="@+id/textView9" />
 
     <TextView
         android:id="@+id/tvDustTitle"
         android:layout_width="187dp"
         android:layout_height="0dp"
-        android:layout_marginTop="101dp"
-        android:layout_marginBottom="1dp"
+        android:layout_marginTop="5dp"
+        android:layout_marginBottom="19dp"
         android:gravity="center"
         android:text="날씨"
         android:textSize="36sp"
@@ -36,65 +34,50 @@
 
     <TextView
         android:id="@+id/tvDustApiTest"
-        android:layout_width="442dp"
+        android:layout_width="0dp"
         android:layout_height="0dp"
-        android:layout_marginBottom="695dp"
+        android:layout_marginStart="80dp"
+        android:layout_marginEnd="80dp"
+        android:layout_marginBottom="58dp"
         android:gravity="center"
         android:text="API TEST"
         android:textSize="12sp"
         app:autoSizeTextType="uniform"
-        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintBottom_toTopOf="@+id/textView5"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.496"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/tvDustTitle" />
 
     <TextView
-        android:id="@+id/textView7"
-        android:layout_width="150dp"
-        android:layout_height="0dp"
-        android:layout_marginBottom="76dp"
+        android:id="@+id/textView8"
+        android:layout_width="0dp"
+        android:layout_height="50dp"
         android:gravity="center"
-        android:text="기온"
-        android:textSize="28sp"
-        app:layout_constraintBottom_toTopOf="@+id/textView8"
-        app:layout_constraintEnd_toEndOf="@+id/textView8"
-        app:layout_constraintStart_toStartOf="@+id/textView8"
-        app:layout_constraintTop_toBottomOf="@+id/textView6" />
-
-    <TextView
-        android:id="@+id/textView9"
-        android:layout_width="150dp"
-        android:layout_height="0dp"
-        android:layout_marginStart="80dp"
-        android:layout_marginBottom="315dp"
-        android:gravity="center"
-        android:text="강수확률"
+        android:text="강수량"
         android:textSize="28sp"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/textView8" />
+        app:layout_constraintEnd_toEndOf="@+id/textView9"
+        app:layout_constraintStart_toStartOf="@+id/textView9"
+        app:layout_constraintTop_toTopOf="parent" />
 
     <TextView
         android:id="@+id/textView5"
-        android:layout_width="150dp"
+        android:layout_width="0dp"
         android:layout_height="0dp"
-        android:layout_marginTop="418dp"
-        android:layout_marginBottom="75dp"
+        android:layout_marginBottom="7dp"
         android:gravity="center"
         android:text="날씨"
         android:textSize="28sp"
         app:layout_constraintBottom_toTopOf="@+id/textView6"
-        app:layout_constraintEnd_toStartOf="@+id/tvDustApiTest"
-        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintEnd_toEndOf="@+id/textView6"
         app:layout_constraintStart_toStartOf="@+id/textView6"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toBottomOf="@+id/tvDustApiTest" />
 
     <TextView
         android:id="@+id/textView6"
-        android:layout_width="150dp"
+        android:layout_width="0dp"
         android:layout_height="0dp"
-        android:layout_marginBottom="71dp"
+        android:layout_marginBottom="9dp"
         android:gravity="center"
         android:text="시간"
         android:textSize="28sp"
@@ -104,16 +87,29 @@
         app:layout_constraintTop_toBottomOf="@+id/textView5" />
 
     <TextView
-        android:id="@+id/textView8"
-        android:layout_width="150dp"
+        android:id="@+id/textView7"
+        android:layout_width="0dp"
         android:layout_height="0dp"
-        android:layout_marginBottom="75dp"
+        android:layout_marginBottom="63dp"
         android:gravity="center"
-        android:text="강수량"
+        android:text="기온"
         android:textSize="28sp"
         app:layout_constraintBottom_toTopOf="@+id/textView9"
-        app:layout_constraintEnd_toEndOf="@+id/textView9"
-        app:layout_constraintStart_toStartOf="@+id/textView9"
+        app:layout_constraintEnd_toEndOf="@+id/textView8"
+        app:layout_constraintStart_toStartOf="@+id/textView8"
+        app:layout_constraintTop_toBottomOf="@+id/textView6" />
+
+    <TextView
+        android:id="@+id/textView9"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_marginStart="80dp"
+        android:layout_marginBottom="74dp"
+        android:gravity="center"
+        android:text="강수확률"
+        android:textSize="28sp"
+        app:layout_constraintBottom_toTopOf="@+id/btDustClose"
+        app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/textView7" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
